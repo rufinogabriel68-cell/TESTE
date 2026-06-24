@@ -12,21 +12,10 @@ create table if not exists workspaces (
 );
 alter table workspaces enable row level security;
 create policy "own workspace" on workspaces
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
--- TRAVA DE EDIÇÃO (só 1 dispositivo edita por vez)
-create table if not exists edit_locks (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  device_id text not null,
-  device_name text,
-  heartbeat timestamptz not null default now()
-);
-alter table edit_locks enable row level security;
-create policy "own lock" on edit_locks
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);`;
 
 export default function Config() {
-  const { db, mutate, toast, guardEdit, canEdit, hasSupabase, refreshCreds, lock } = useApp();
+  const { db, mutate, toast, guardEdit, canEdit, hasSupabase, refreshCreds } = useApp();
   const creds = getStoredCreds();
   const [url, setUrl] = useState(creds.url);
   const [key, setKey] = useState(creds.key);
@@ -92,18 +81,6 @@ export default function Config() {
           <summary className="cursor-pointer text-xs font-mono text-[var(--purple-neon)]">▸ Ver SQL para criar as tabelas no Supabase</summary>
           <pre className="mt-2 p-3 bg-[var(--bg-input)] border border-[var(--border)] rounded-md text-[10px] text-[var(--text-secondary)] overflow-x-auto whitespace-pre">{SQL}</pre>
         </details>
-      </Card>
-
-      <Card>
-        <CardHeader title="🔒 Trava de Edição" />
-        <div className="text-xs font-mono text-[var(--text-secondary)] leading-relaxed">
-          {lock.isEditor
-            ? <p>Este dispositivo está em <span className="text-[var(--green-ok)]">modo EDITOR</span> — você pode alterar os dados.</p>
-            : lock.otherDevice
-              ? <p>Outro dispositivo (<span className="text-[var(--yellow-warn)]">{lock.otherDevice}</span>) está editando. Você está em <span className="text-[var(--cyan-accent)]">modo VISUALIZAÇÃO</span>.</p>
-              : <p>Modo visualização. Sem conexão de edição ativa.</p>}
-          <p className="mt-2 text-[var(--text-muted)]">Apenas 1 dispositivo pode editar por vez. A trava libera automaticamente após 30s de inatividade ou ao sair.</p>
-        </div>
       </Card>
 
       <Card>

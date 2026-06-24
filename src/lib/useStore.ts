@@ -1,18 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { emptyDB, type DB } from '../types';
-import { getSupabase, getDeviceId, getDeviceName, getStoredCreds } from './supabase';
+import { getSupabase, getStoredCreds } from './supabase';
 
 export type SyncState = 'synced' | 'syncing' | 'offline';
-export type LockState = {
-  /** Este dispositivo detém a trava de edição? */
-  isEditor: boolean;
-  /** Há outro dispositivo editando agora? */
-  otherDevice: string | null;
-};
-
-const LOCK_TTL_MS = 30_000; // trava expira após 30s sem heartbeat
-const HEARTBEAT_MS = 10_000;
 
 const LOCAL_KEY = 'gbr_v3_supabase';
 
@@ -37,16 +28,12 @@ export function useStore() {
   const [authReady, setAuthReady] = useState(false);
   const [db, setDb] = useState<DB>(loadLocal);
   const [sync, setSync] = useState<SyncState>('synced');
-  const [lock, setLock] = useState<LockState>({ isEditor: false, otherDevice: null });
   const [hasSupabase, setHasSupabase] = useState<boolean>(!!getStoredCreds().url);
 
   const dbRef = useRef(db);
   dbRef.current = db;
   const sb = useRef<SupabaseClient | null>(getSupabase());
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const heartbeatTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lockPollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const deviceId = getDeviceId();
 
   /* ── AUTH ── */
   useEffect(() => {
@@ -94,119 +81,17 @@ export function useStore() {
     setSync('synced');
   }, [session]);
 
-  /* ── TRAVA DE EDIÇÃO ── */
-  const checkLock = useCallback(async (): Promise<boolean> => {
-    const client = sb.current;
-    if (!client || !session) return false;
-    const { data } = await client
-      .from('edit_locks')
-      .select('device_id, device_name, heartbeat')
-      .eq('user_id', session.user.id)
-      .maybeSingle();
-
-    if (!data) {
-      setLock({ isEditor: false, otherDevice: null });
-      return true; // sem trava → disponível
-    }
-    const age = Date.now() - new Date(data.heartbeat).getTime();
-    const expired = age > LOCK_TTL_MS;
-    if (data.device_id === deviceId) {
-      setLock({ isEditor: true, otherDevice: null });
-      return true;
-    }
-    if (expired) {
-      setLock({ isEditor: false, otherDevice: null });
-      return true; // trava de outro expirou → disponível
-    }
-    setLock({ isEditor: false, otherDevice: data.device_name || 'Outro dispositivo' });
-    return false;
-  }, [session, deviceId]);
-
-  const acquireLock = useCallback(async (): Promise<boolean> => {
-    const client = sb.current;
-    if (!client || !session) return false;
-    const available = await checkLock();
-    if (!available) return false;
-    const { error } = await client.from('edit_locks').upsert({
-      user_id: session.user.id,
-      device_id: deviceId,
-      device_name: getDeviceName(),
-      heartbeat: new Date().toISOString(),
-    });
-    if (error) return false;
-    setLock({ isEditor: true, otherDevice: null });
-    return true;
-  }, [session, deviceId, checkLock]);
-
-  const releaseLock = useCallback(async () => {
-    const client = sb.current;
-    if (!client || !session) return;
-    // só libera se for nossa
-    await client.from('edit_locks').delete()
-      .eq('user_id', session.user.id)
-      .eq('device_id', deviceId);
-    setLock({ isEditor: false, otherDevice: null });
-  }, [session, deviceId]);
-
-  /* ── Após login: pull + checa trava + heartbeat ── */
+  /* ── Após login: pull de dados ── */
   useEffect(() => {
     if (!session || !sb.current) return;
     pullFromServer();
-    acquireLock();
-
-    heartbeatTimer.current = setInterval(async () => {
-      const client = sb.current;
-      if (!client || !session) return;
-      if (lockRef.current.isEditor) {
-        await client.from('edit_locks').update({ heartbeat: new Date().toISOString() })
-          .eq('user_id', session.user.id)
-          .eq('device_id', deviceId);
-      }
-    }, HEARTBEAT_MS);
-
-    lockPollTimer.current = setInterval(async () => {
-      const wasEditor = lockRef.current.isEditor;
-      const available = await checkLock();
-      // se ganhamos disponibilidade e não éramos editor, tenta adquirir
-      if (available && !lockRef.current.isEditor && !wasEditor) {
-        await acquireLock();
-      }
-      // se somos viewer, atualiza dados do servidor periodicamente
-      if (!lockRef.current.isEditor) {
-        await pullFromServer();
-      }
-    }, HEARTBEAT_MS);
-
-    const onUnload = () => {
-      const client = sb.current;
-      if (client && session && lockRef.current.isEditor) {
-        // best-effort
-        navigator.sendBeacon?.(
-          `${getStoredCreds().url}/rest/v1/edit_locks?user_id=eq.${session.user.id}&device_id=eq.${deviceId}`,
-        );
-      }
-    };
-    window.addEventListener('beforeunload', onUnload);
-
-    return () => {
-      if (heartbeatTimer.current) clearInterval(heartbeatTimer.current);
-      if (lockPollTimer.current) clearInterval(lockPollTimer.current);
-      window.removeEventListener('beforeunload', onUnload);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
-
-  const lockRef = useRef(lock);
-  lockRef.current = lock;
 
   /* ── SALVAR no servidor (autoritativo, sem merge → deleções persistem) ── */
   const pushToServer = useCallback(async (next: DB) => {
     const client = sb.current;
     if (!client || !session) {
-      setSync('offline');
-      return;
-    }
-    if (!lockRef.current.isEditor) {
       setSync('offline');
       return;
     }
@@ -236,11 +121,11 @@ export function useStore() {
   }, []);
 
   return {
-    session, authReady, db, sync, lock, hasSupabase,
+    session, authReady, db, sync, hasSupabase,
     supabase: sb.current,
     mutate, setDb,
-    pullFromServer, acquireLock, releaseLock, checkLock,
+    pullFromServer,
     refreshCreds,
-    canEdit: lock.isEditor,
+    canEdit: true,
   };
 }

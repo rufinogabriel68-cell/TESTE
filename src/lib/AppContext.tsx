@@ -5,7 +5,6 @@ type ToastType = 'info' | 'success' | 'error' | 'warn';
 
 export interface AppCtx extends ReturnType<typeof useStore> {
   toast: (msg: string, type?: ToastType) => void;
-  /** Tenta editar; se não for editor mostra aviso e retorna false */
   guardEdit: () => boolean;
 }
 

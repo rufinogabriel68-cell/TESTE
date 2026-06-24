@@ -19,22 +19,11 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
  *  alter table workspaces enable row level security;
  *  create policy "own workspace" on workspaces
  *    for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
- *
- *  -- Tabela de trava de edição (apenas 1 dispositivo edita por vez)
- *  create table if not exists edit_locks (
- *    user_id uuid primary key references auth.users(id) on delete cascade,
- *    device_id text not null,
- *    device_name text,
- *    heartbeat timestamptz not null default now()
- *  );
- *  alter table edit_locks enable row level security;
- *  create policy "own lock" on edit_locks
- *    for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
  * ─────────────────────────────────────────────────────────────
  */
 
-const HARDCODED_URL = '';
-const HARDCODED_KEY = '';
+const HARDCODED_URL = 'https://uzscbvmahqbbetktcrca.supabase.co';
+const HARDCODED_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6c2Nidm1haHFiYmV0a3RjcmNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNDkwMzYsImV4cCI6MjA5NzgyNTAzNn0.OZiqukS5f_tuZZ-TLP5xw41ySC_gHtR7dO6ZNXUEa8w';
 
 export function getStoredCreds(): { url: string; key: string } {
   let url = HARDCODED_URL;
@@ -72,30 +61,4 @@ export function getSupabase(): SupabaseClient | null {
 
 export function resetSupabase() {
   _client = null;
-}
-
-/* Identidade única deste dispositivo/navegador */
-export function getDeviceId(): string {
-  let id = localStorage.getItem('gbr_device_id');
-  if (!id) {
-    id = 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    localStorage.setItem('gbr_device_id', id);
-  }
-  return id;
-}
-
-export function getDeviceName(): string {
-  let name = localStorage.getItem('gbr_device_name');
-  if (!name) {
-    const ua = navigator.userAgent;
-    let plat = 'Dispositivo';
-    if (/iPhone|iPad/.test(ua)) plat = 'iOS';
-    else if (/Android/.test(ua)) plat = 'Android';
-    else if (/Mac/.test(ua)) plat = 'Mac';
-    else if (/Win/.test(ua)) plat = 'Windows';
-    else if (/Linux/.test(ua)) plat = 'Linux';
-    name = `${plat} · ${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
-    localStorage.setItem('gbr_device_name', name);
-  }
-  return name;
 }

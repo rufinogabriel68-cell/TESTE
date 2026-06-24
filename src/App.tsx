@@ -64,13 +64,7 @@ export default function App() {
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
   }, []);
 
-  const guardEdit = useCallback(() => {
-    if (store.canEdit) return true;
-    toast(store.lock.otherDevice
-      ? `🔒 Modo visualização — "${store.lock.otherDevice}" está editando`
-      : '🔒 Modo visualização — você não pode editar agora', 'warn');
-    return false;
-  }, [store.canEdit, store.lock.otherDevice, toast]);
+  const guardEdit = useCallback(() => true, []);
 
   // when a chamado is converted, jump to OS module
   const onConvert = (c: Chamado) => { setPendingChamado(c); setModule('os'); };
@@ -143,13 +137,13 @@ export default function App() {
           <div className="p-3 border-t border-[var(--border)] flex items-center gap-2">
             {!collapsed && <div className="overflow-hidden flex-1">
               <div className="text-[10px] text-[var(--text-muted)] font-mono truncate">{store.session.user.email}</div>
-              <div className="text-[9px] font-mono flex items-center gap-1" style={{ color: store.canEdit ? 'var(--green-ok)' : 'var(--cyan-accent)' }}>
+              <div className="text-[9px] font-mono flex items-center gap-1" style={{ color: 'var(--green-ok)' }}>
                 <span className="w-[5px] h-[5px] rounded-full inline-block" style={{ background: 'currentColor', animation: 'pulse-dot 2s infinite' }} />
-                {store.canEdit ? 'EDITOR' : 'VIEWER'}
+                ONLINE
               </div>
             </div>}
             <button title="Colapsar" onClick={() => setCollapsed(c => !c)} className="text-[var(--text-muted)] hover:text-[var(--purple-neon)] p-1">◀</button>
-            <button title="Sair" onClick={async () => { if (confirm('Sair do sistema?')) { await store.releaseLock(); await store.supabase?.auth.signOut(); } }} className="text-[var(--text-muted)] hover:text-[var(--purple-neon)] p-1">⏻</button>
+            <button title="Sair" onClick={async () => { if (confirm('Sair do sistema?')) { await store.supabase?.auth.signOut(); } }} className="text-[var(--text-muted)] hover:text-[var(--purple-neon)] p-1">⏻</button>
           </div>
         </nav>
 
@@ -159,26 +153,12 @@ export default function App() {
             <div className="text-[15px] font-bold flex-1">
               <span className="text-[var(--purple-neon)] font-mono">{TITLES[module]}</span>
             </div>
-            {!store.canEdit && (
-              <div className="flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-1 rounded-full border text-[var(--cyan-accent)] border-[rgba(0,212,255,0.3)]">
-                👁 VISUALIZADOR
-              </div>
-            )}
             <div className={`flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-1 rounded-full border ${syncCls}`} style={store.sync === 'syncing' ? { animation: 'syncing-pulse 1s infinite' } : undefined}>
               <span>●</span><span>{syncTxt}</span>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 max-md:p-3 max-md:pb-20">
-            {!store.canEdit && (
-              <div className="mb-4 flex items-center gap-2 px-4 py-2.5 rounded-md bg-[rgba(0,212,255,0.06)] border border-[rgba(0,212,255,0.25)] text-[var(--cyan-accent)] text-xs font-mono">
-                👁 Modo Visualização — {store.lock.otherDevice ? `"${store.lock.otherDevice}" está editando agora.` : 'somente leitura.'} Você verá as alterações em tempo real.
-                <button onClick={async () => { const ok = await store.acquireLock(); toast(ok ? '✏️ Você agora é o editor!' : '🔒 Outro dispositivo está editando', ok ? 'success' : 'warn'); }}
-                  className="ml-auto px-2.5 py-1 rounded bg-[rgba(0,212,255,0.15)] hover:bg-[rgba(0,212,255,0.25)] border border-[rgba(0,212,255,0.3)]">
-                  Assumir edição
-                </button>
-              </div>
-            )}
             {renderModule()}
           </div>
         </div>
