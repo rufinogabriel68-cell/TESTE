@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+:root {
+  --bg-base:       #0a0a0f;
+  --bg-panel:      #0f0f1a;
+  --bg-card:       #13131f;
+  --bg-hover:      #1a1a2e;
+  --bg-input:      #0d0d18;
+  --border:        #1e1e3a;
+  --border-glow:   #4a00e0;
+  --purple-mid:    #4a00e0;
+  --purple-bright: #7c3aed;
+  --purple-neon:   #a855f7;
+  --purple-glow:   #c084fc;
+  --cyan-accent:   #00d4ff;
+  --green-ok:      #00ff88;
+  --red-alert:     #ff3366;
+  --yellow-warn:   #ffcc00;
+  --text-primary:  #e2d9f3;
+  --text-secondary:#8b7db5;
+  --text-muted:    #4a4470;
+  --font-mono:     'Courier New', 'Lucida Console', monospace;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+}
+
+.font-mono { font-family: var(--font-mono); }
+
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(74,0,224,0.015) 2px, rgba(74,0,224,0.015) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.hacker-bg {
+  background-image:
+    linear-gradient(rgba(74,0,224,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74,0,224,0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--purple-mid); border-radius: 3px; }
+
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+@keyframes toast-in { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+@keyframes syncing-pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--purple-neon), var(--cyan-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+input, select, textarea {
+  font-family: inherit;
+}
+select option { background: var(--bg-card); }
